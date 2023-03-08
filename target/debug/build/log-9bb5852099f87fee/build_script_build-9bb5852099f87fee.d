@@ -1,0 +1,5 @@
+/Users/desmo/Projects/clinews/target/debug/build/log-9bb5852099f87fee/build_script_build-9bb5852099f87fee: /Users/desmo/.cargo/registry/src/github.com-1ecc6299db9ec823/log-0.4.17/build.rs
+
+/Users/desmo/Projects/clinews/target/debug/build/log-9bb5852099f87fee/build_script_build-9bb5852099f87fee.d: /Users/desmo/.cargo/registry/src/github.com-1ecc6299db9ec823/log-0.4.17/build.rs
+
+/Users/desmo/.cargo/registry/src/github.com-1ecc6299db9ec823/log-0.4.17/build.rs:

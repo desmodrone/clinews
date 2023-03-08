@@ -1,0 +1,17 @@
+[package]
+name = "clinews"
+version = "0.1.0"
+edition = "2021"
+description = "clinews app"
+
+[package.metadata.bundle]
+name = "clinews"
+identifier = "com.erick.newsapi"
+short_description = "simple clinews app"
+
+[dependencies]
+dotenv = "0.15.0"
+newsapi = {path = "./newsapi", features = ["async"]}
+termimad = "0.20.3"
+crossterm = "0.23.1"
+tokio = {version = "1.22.0", features = ["full"]}
