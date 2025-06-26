@@ -1,5 +1,3 @@
-#[cfg(feature = "async")]
-use reqwest::Method;
 use serde::Deserialize;
 use url::Url;
 
@@ -35,7 +33,7 @@ impl NewsAPIResponse {
     }
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Clone, Deserialize, Debug)]
 pub struct Article {
     title: String,
     url: String,
@@ -51,26 +49,77 @@ impl Article {
     }
 }
 
+use std::str::FromStr;
+
 pub enum Endpoint {
     TopHeadlines,
+    Everything,
 }
 
 impl ToString for Endpoint {
     fn to_string(&self) -> String {
         match self {
             Self::TopHeadlines => "top-headlines".to_string(),
+            Self::Everything => "everything".to_string(),
+        }
+    }
+}
+
+impl FromStr for Endpoint {
+    type Err = NewsApiError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "top-headlines" => Ok(Self::TopHeadlines),
+            "everything" => Ok(Self::Everything),
+            _ => Err(NewsApiError::BadRequest("Invalid endpoint")),
         }
     }
 }
 
 pub enum Country {
     Us,
+    Gb,
+    Ca,
+    Au,
+    In,
+    Jp,
+    Cn,
+    De,
+    Fr,
 }
 
 impl ToString for Country {
     fn to_string(&self) -> String {
         match self {
             Self::Us => "us".to_string(),
+            Self::Gb => "gb".to_string(),
+            Self::Ca => "ca".to_string(),
+            Self::Au => "au".to_string(),
+            Self::In => "in".to_string(),
+            Self::Jp => "jp".to_string(),
+            Self::Cn => "cn".to_string(),
+            Self::De => "de".to_string(),
+            Self::Fr => "fr".to_string(),
+        }
+    }
+}
+
+impl FromStr for Country {
+    type Err = NewsApiError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "us" => Ok(Self::Us),
+            "gb" => Ok(Self::Gb),
+            "ca" => Ok(Self::Ca),
+            "au" => Ok(Self::Au),
+            "in" => Ok(Self::In),
+            "jp" => Ok(Self::Jp),
+            "cn" => Ok(Self::Cn),
+            "de" => Ok(Self::De),
+            "fr" => Ok(Self::Fr),
+            _ => Err(NewsApiError::BadRequest("Invalid country")),
         }
     }
 }
@@ -79,6 +128,7 @@ pub struct NewsAPI {
     api_key: String,
     endpoint: Endpoint,
     country: Country,
+    query: Option<String>,
 }
 
 impl NewsAPI {
@@ -87,6 +137,7 @@ impl NewsAPI {
             api_key: api_key.to_string(),
             endpoint: Endpoint::TopHeadlines,
             country: Country::Us,
+            query: None,
         }
     }
 
@@ -100,14 +151,33 @@ impl NewsAPI {
         self
     }
 
+    pub fn query(&mut self, query: &str) -> &mut NewsAPI {
+        self.query = Some(query.to_string());
+        self
+    }
+
     fn prepare_url(&self) -> Result<String, NewsApiError> {
         let mut url = Url::parse(BASE_URL)?;
         url.path_segments_mut()
             .unwrap()
             .push(&self.endpoint.to_string());
 
-        let country = format!("country={}", self.country.to_string());
-        url.set_query(Some(&country));
+        let mut pairs = vec![];
+
+        match self.endpoint {
+            Endpoint::TopHeadlines => {
+                pairs.push(format!("country={}", self.country.to_string()));
+            }
+            Endpoint::Everything => {
+                if let Some(q) = &self.query {
+                    pairs.push(format!("q={}", q));
+                } else {
+                    return Err(NewsApiError::BadRequest("Query is required for 'everything' endpoint"));
+                }
+            }
+        }
+
+        url.set_query(Some(&pairs.join("&")));
 
         Ok(url.to_string())
     }
@@ -122,28 +192,34 @@ impl NewsAPI {
         }
     }
 
-    // #[cfg(feature = "async")]
-    // pub async fn fetch_async(&self) -> Result<NewsAPIResponse, NewsApiError> {
-    //     let url = self.prepare_url()?;
-    //     let client = reqwest::Client::new(); 
-    //     let request = client
-    //         .request(Method::GET, url)
-    //         .header("Authorization", &self.api_key)
-    //         .build()
-    //         .map_err(|e| NewsApiError::AsyncRequestFailed(e))?;
+    #[cfg(feature = "async")]
+    pub async fn fetch_async(&self) -> Result<NewsAPIResponse, NewsApiError> {
+        let url = self.prepare_url()?;
+        let client = reqwest::Client::builder()
+            .user_agent("clinews-app")
+            .build()
+            .map_err(|e| NewsApiError::AsyncRequestFailed(e))?;
+        let request = client
+            .request(reqwest::Method::GET, url)
+            .header("Authorization", &self.api_key)
+            .build()
+            .map_err(|e| NewsApiError::AsyncRequestFailed(e))?;
 
-    //     let response: NewsAPIResponse = client
-    //         .execute(request)
-    //         .await?
-    //         .json()
-    //         .await
-    //         .map_err(|e| NewsApiError::AsyncRequestFailed(e))?;
+        let response_text = client
+            .execute(request)
+            .await?
+            .text()
+            .await
+            .map_err(|e| NewsApiError::AsyncRequestFailed(e))?;
 
-    //     match response.status.as_str() {
-    //         "ok" => return Ok(response),
-    //         _ => return Err(map_response_err(response.code)),
-    //     }
-    // }
+        let response: NewsAPIResponse = serde_json::from_str(&response_text)
+            .map_err(|e| NewsApiError::ArticleParseFailed(e))?;
+
+        match response.status.as_str() {
+            "ok" => return Ok(response),
+            _ => return Err(map_response_err(response.code)),
+        }
+    }
 }
 
 fn map_response_err(code: Option<String>) -> NewsApiError {

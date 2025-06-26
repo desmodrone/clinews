@@ -16,3 +16,4 @@ termimad = "0.20.3"
 crossterm = "0.23.1"
 tokio = {version = "1.22.0", features = ["full"]}
 clap = { version = "4.0", features = ["derive"] }
+webbrowser = "0.8.10"
