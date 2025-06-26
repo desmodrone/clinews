@@ -10,7 +10,7 @@ use std::error::Error;
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
 struct Args {
-    #[arg(short, long)]
+    #[arg(short, long, help = "Country to fetch news from (us, gb, ca, au, in, jp, cn, de, fr)")]
     country: Option<String>,
     #[arg(short, long, default_value = "top-headlines")]
     endpoint: String,
@@ -80,10 +80,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let articles = fetch_news(country, &args.endpoint, &args.query, &api_key).await?;
     let theme = theme::default();
-    render_articles(&articles, &theme);
 
-    if let Some(url) = get_user_choice(&articles)? {
-        webbrowser::open(&url)?;
+    loop {
+        render_articles(&articles, &theme);
+
+        if let Some(url) = get_user_choice(&articles)? {
+            webbrowser::open(&url)?;
+        } else {
+            break;
+        }
     }
 
     Ok(())
